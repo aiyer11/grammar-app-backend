@@ -23,18 +23,18 @@ public class JwtUtil {
     @Value("${jwt.refresh-expiration:604800000}")
     private long refreshExpiration;
 
-    public String generateAccessToken(String userId, String email) {
+    public String generateAccessToken(Long userId, String email) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("email", email);
         return createToken(claims, userId, jwtExpiration);
     }
 
-    public String generateRefreshToken(String userId) {
+    public String generateRefreshToken(Long userId) {
         return createToken(new HashMap<>(), userId, refreshExpiration);
     }
 
-    public String extractUserId(String token) {
-        return extractClaim(token, Claims::getSubject);
+    public Long extractUserId(String token) {
+        return Long.valueOf(extractClaim(token, Claims::getSubject));
     }
 
     public String extractEmail(String token) {
@@ -43,19 +43,19 @@ public class JwtUtil {
 
     public boolean isTokenExpired(String token) {
         try {
-            extractAllClaims(token);
+            extractAllClaims(token).getExpiration().before(new Date());
             return true;
         } catch (Exception e) {
             return false;
         }
     }
 
-    private String createToken(Map<String, Object> claims, String subject, long expiration) {
+    private String createToken(Map<String, Object> claims, Long subject, long expiration) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + expiration);
         return Jwts.builder()
                 .claims(claims)
-                .subject(subject)
+                .subject(String.valueOf(subject))
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(getSigningKey())
