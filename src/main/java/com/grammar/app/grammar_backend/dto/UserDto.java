@@ -1,4 +1,4 @@
 package com.grammar.app.grammar_backend.dto;
 
-public record UserDto(String id, String email, String username) {
+public record UserDto(Long id, String email, String username) {
 }

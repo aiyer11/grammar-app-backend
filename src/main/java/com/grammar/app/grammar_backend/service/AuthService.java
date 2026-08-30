@@ -64,11 +64,11 @@ public class AuthService {
     }
 
     public AuthResponse refreshAccessToken(String refreshToken) {
-        if (!jwtUtil.isTokenExpired(refreshToken)) {
+        if (jwtUtil.isTokenExpired(refreshToken)) {
             throw new IllegalArgumentException("Invalid or expired refresh token");
         }
 
-        String userId = jwtUtil.extractUserId(refreshToken);
+        Long userId = jwtUtil.extractUserId(refreshToken);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
