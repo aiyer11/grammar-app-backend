@@ -38,15 +38,15 @@ public class JwtUtil {
     }
 
     public String extractEmail(String token) {
-        return extractClaim(token, claims -> claims.get("email", String.class));
+        String email = extractClaim(token, claims -> claims.get("email", String.class));
+        return email != null ? email.toLowerCase() : null;
     }
 
     public boolean isTokenExpired(String token) {
         try {
-            extractAllClaims(token).getExpiration().before(new Date());
-            return true;
+            return extractAllClaims(token).getExpiration().before(new Date());
         } catch (Exception e) {
-            return false;
+            return true;
         }
     }
 
