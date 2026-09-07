@@ -5,6 +5,8 @@ import java.time.LocalDateTime;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import com.grammar.app.grammar_backend.entity.lesson_generation.LessonContent;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -48,7 +50,7 @@ public class Lesson {
     private LessonContent content;
 
     @Column
-    private int durationInMinutes;
+    private int estimatedTime;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;

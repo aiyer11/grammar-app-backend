@@ -1,0 +1,1 @@
+CREATE TYPE lesson_status AS ENUM ('DRAFT', 'ACTIVE', 'ARCHIVED');

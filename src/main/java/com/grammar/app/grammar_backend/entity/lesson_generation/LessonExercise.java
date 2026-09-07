@@ -1,10 +1,11 @@
-package com.grammar.app.grammar_backend.entity;
+package com.grammar.app.grammar_backend.entity.lesson_generation;
 
 import java.util.List;
 
 public record LessonExercise(
         String id,
         ExerciseType type,
+        String objective,
         String prompt,
         String questionText,
         List<String> options,

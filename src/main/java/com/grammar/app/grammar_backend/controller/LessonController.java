@@ -7,13 +7,12 @@ import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.grammar.app.grammar_backend.entity.DifficultyLevel;
 import com.grammar.app.grammar_backend.entity.Lesson;
+import com.grammar.app.grammar_backend.entity.lesson_generation.LessonCode;
 import com.grammar.app.grammar_backend.service.LessonService;
 
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 import org.springframework.web.bind.annotation.GetMapping;
 
@@ -29,12 +28,9 @@ public class LessonController {
     }
 
     @GetMapping("/generateLesson")
-    @Parameter(name = "title", required = true, description = "The title of the lesson to generate")
-    @Parameter(name = "difficultyLevel", required = true, description = "The difficulty level of the lesson to generate")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<Lesson> generateAndSaveLesson(String title, DifficultyLevel difficultyLevel)
-            throws JsonMappingException, JsonProcessingException {
-        Lesson lesson = lessonService.generateAndSaveLesson(title, difficultyLevel);
+    @Parameter(name = "lesson code", schema = @Schema(implementation = LessonCode.class))
+    public ResponseEntity<Lesson> generateAndSaveLesson(LessonCode lessonCode) {
+        Lesson lesson = lessonService.generateAndSaveLesson(lessonCode);
         return ResponseEntity.ok(lesson);
     }
 

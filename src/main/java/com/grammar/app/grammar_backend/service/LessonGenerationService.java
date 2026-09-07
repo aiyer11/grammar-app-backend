@@ -1,72 +1,312 @@
 package com.grammar.app.grammar_backend.service;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.grammar.app.grammar_backend.entity.DifficultyLevel;
-import com.grammar.app.grammar_backend.entity.LessonContent;
+import com.grammar.app.grammar_backend.entity.lesson_generation.LessonCommonMistakes;
+import com.grammar.app.grammar_backend.entity.lesson_generation.LessonConcept;
+import com.grammar.app.grammar_backend.entity.lesson_generation.LessonContent;
+import com.grammar.app.grammar_backend.entity.lesson_generation.LessonExamples;
+import com.grammar.app.grammar_backend.entity.lesson_generation.LessonExercise;
+import com.grammar.app.grammar_backend.entity.lesson_generation.LessonExplanation;
+import com.grammar.app.grammar_backend.entity.lesson_generation.LessonSection;
+import com.grammar.app.grammar_backend.exceptions.AiResponseParsingException;
 
 @Service
 public class LessonGenerationService {
 
-    private final ChatClient chatClient;
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    private final Logger logger = LoggerFactory.getLogger(LessonGenerationService.class);
+  private final ChatClient chatClient;
+  private final Logger LOGGER = LoggerFactory.getLogger(LessonGenerationService.class);
+  private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public LessonGenerationService(ChatClient.Builder chatClient) {
-        this.chatClient = chatClient.build();
+  public LessonGenerationService(ChatClient.Builder chatClient) {
+    this.chatClient = chatClient.build();
+  }
+
+  private LessonExplanation generateExplaination(LessonConcept concept) {
+    String prompt = """
+        You are an expert English grammar teacher.
+
+        Concept:
+        - Name: %s
+        - Category: %s
+        - Difficulty: %s
+        - Goal: %s
+
+        Rules:
+        - Keep them appropriate for the difficulty level
+        - Make them realistic and grammar-correct
+        - The examples should directly show the concept in use
+        - Return valid JSON only with this schema:
+        - No markdown fences.
+        - No commentary.
+        - No text before or after the JSON.
+        - No code blocks.
+        - No trailing commas.
+        - The output must be a single JSON object.
+
+        Generate a short lesson title and a clear explanation for this concept.
+        Return valid JSON only with this schema:
+        {
+          "title": "string",
+          "explanation": "string"
+        }
+        """.formatted(
+        concept.getName(),
+        concept.getCategory(),
+        concept.getDifficultyLevel(),
+        concept.getGoal());
+
+    LOGGER.info("Generating explanation for concept: {}", concept.getName());
+    LOGGER.debug("Prompt for explanation generation: {}", prompt);
+
+    String rawResponse = chatClient.prompt()
+        .user(prompt)
+        .call()
+        .content();
+
+    try {
+      LessonExplanation explanation = objectMapper.readValue(rawResponse, LessonExplanation.class);
+      LOGGER.info("Parsed explanation: {}", explanation);
+      return explanation;
+    } catch (Exception e) {
+      LOGGER.error("Failed to parse explanation response for {}. Raw response: {}",
+          concept.getLessonCode(), rawResponse, e);
+      throw new AiResponseParsingException("Failed to parse explanation response", e);
     }
+  }
 
-    public LessonContent generateLesson(String title, DifficultyLevel difficultyLevel)
-            throws JsonMappingException, JsonProcessingException {
-        String json = chatClient.prompt()
-                .system("""
-                        You are a grammar teacher that generates lesson content in JSON format.
-                        Return only valid JSON.
-                        No markdown fences.
-                        No explanations.
-                        No trailing commas.
-                        Use valid JSON syntax only.""")
-                .user("""
-                            Generate a grammar lesson in valid JSON only.
-                            Use this exact schema:
-                            {
-                              "objective": "string",
-                              "summary": "string",
-                              "estimatedDurationMinutes": 10,
-                              "sections": [
-                                {
-                                  "type": "CONCEPT",
-                                  "title": "string",
-                                  "content": "string"
-                                }
-                              ],
-                              "exercises": [
-                                {
-                                  "id": "string",
-                                  "type": "MULTIPLE_CHOICE",
-                                  "prompt": "string",
-                                  "questionText": "string",
-                                  "options": ["string", "string", "string"],
-                                  "correctAnswer": "string",
-                                  "explanation": "string"
-                                }
-                              ]
-                            }
-                            Topic: %s
-                            Difficulty: %s
-                            Return only valid JSON.
-                        """.formatted(title, difficultyLevel))
-                .call()
-                .content();
-        logger.info("Generated lesson content JSON: {}", json);
+  private LessonExamples generateExamples(LessonConcept concept) {
+    String prompt = """
+        You are an expert English grammar teacher.
 
-        return objectMapper.readValue(json, LessonContent.class);
+        Concept:
+        - Name: %s
+        - Category: %s
+        - Difficulty: %s
+        - Goal: %s
+
+        Generate:
+        - a short section title
+        - exactly 3 clear example sentences that demonstrate this concept
+
+        Rules:
+        - Keep them appropriate for the difficulty level
+        - Make them realistic and grammar-correct
+        - The examples should directly show the concept in use
+        - Return valid JSON only with this schema:
+        - No markdown fences.
+        - No commentary.
+        - No text before or after the JSON.
+        - No code blocks.
+        - No trailing commas.
+        - The output must be a single JSON object.
+        {
+          "title": "string",
+          "examples": ["string", "string", "string"]
+        }
+        - The value must be raw JSON
+        """.formatted(
+        concept.getName(),
+        concept.getCategory(),
+        concept.getDifficultyLevel(),
+        concept.getGoal());
+
+    LOGGER.info("Generating examples for concept: {}", concept.getName());
+    LOGGER.debug("Prompt for example generation: {}", prompt);
+
+    String rawResponse = chatClient.prompt()
+        .user(prompt)
+        .call()
+        .content();
+
+    try {
+      LessonExamples examples = objectMapper.readValue(rawResponse, LessonExamples.class);
+      LOGGER.info("Parsed examples: {}", examples);
+      return examples;
+    } catch (Exception e) {
+      LOGGER.error("Failed to parse examples response for {}. Raw response: {}",
+          concept.getLessonCode(), rawResponse, e);
+      throw new AiResponseParsingException("Failed to parse examples response", e);
     }
+  }
 
+  private LessonCommonMistakes generateCommonMistakes(LessonConcept concept) {
+    String prompt = """
+        You are an expert English grammar teacher.
+
+        Concept:
+        - Name: %s
+        - Category: %s
+        - Difficulty: %s
+        - Goal: %s
+
+        Generate:
+        - a short section title
+        - exactly 3 common mistakes that learners make with this concept, along with explanations and fixes
+        - The fix should be a corrected sentence or grammatical rule.
+
+        Rules:
+        - Keep them appropriate for the difficulty level
+        - Make them realistic and relevant to the concept
+        - Return valid JSON only with this schema:
+        - No markdown fences.
+        - No commentary.
+        - No text before or after the JSON.
+        - No code blocks.
+        - No trailing commas.
+        - The output must be a single JSON object.
+        {
+          "title": "string",
+          "commonMistakes": [
+            {
+              "mistake": "string",
+              "explanation": "string",
+              "fix": "string"
+            },
+            {
+              "mistake": "string",
+              "explanation": "string",
+              "fix": "string"
+            },
+            {
+              "mistake": "string",
+              "explanation": "string",
+              "fix": "string"
+            }
+          ]
+        }
+        """.formatted(
+        concept.getName(),
+        concept.getCategory(),
+        concept.getDifficultyLevel(),
+        concept.getGoal());
+
+    LOGGER.info("Generating common mistakes for concept: {}", concept.getName());
+    LOGGER.debug("Prompt for common mistakes generation: {}", prompt);
+
+    String rawResponse = chatClient.prompt()
+        .user(prompt)
+        .call()
+        .content();
+
+    try {
+      LessonCommonMistakes commonMistakes = objectMapper.readValue(rawResponse, LessonCommonMistakes.class);
+      LOGGER.info("Parsed common mistakes: {}", commonMistakes);
+      return commonMistakes;
+    } catch (Exception e) {
+      LOGGER.error("Failed to parse common mistakes response for {}. Raw response: {}",
+          concept.getLessonCode(), rawResponse, e);
+      throw new AiResponseParsingException("Failed to parse common mistakes response", e);
+    }
+  }
+
+  private LessonExercise generateExerciseForObjective(LessonConcept concept, String objective) {
+    String prompt = """
+        You are an expert English grammar teacher.
+
+        Concept:
+        - Name: %s
+        - Category: %s
+        - Difficulty: %s
+        - Goal: %s
+
+        Objective to teach:
+        %s
+
+        Choose the single best exercise type for this objective from:
+        MULTIPLE_CHOICE, FILL_IN_THE_BLANK, TRUE_FALSE, DRAG_AND_DROP, SENTENCE_ORDERING
+
+        Rules:
+        - Generate exactly one exercise.
+        - The exercise must directly test this objective.
+        - Pick the best format for the objective.
+        - Keep it appropriate for the difficulty level.
+        - Return valid JSON only with this schema:
+
+        {
+          "id": "string",
+          "type": "MULTIPLE_CHOICE",
+          "objective": "string",
+          "prompt": "string",
+          "questionText": "string",
+          "options": ["string"],
+          "correctAnswer": "string",
+          "explanation": "string"
+        }
+        """.formatted(
+        concept.getName(),
+        concept.getCategory(),
+        concept.getDifficultyLevel(),
+        concept.getGoal(),
+        objective);
+
+    LOGGER.info("Generating exercise for concept: {} and objective: {}", concept.getName(), objective);
+    LOGGER.debug("Prompt for exercise generation: {}", prompt);
+
+    String rawResponse = chatClient.prompt()
+        .user(prompt)
+        .call()
+        .content();
+
+    try {
+      LessonExercise exercise = objectMapper.readValue(rawResponse, LessonExercise.class);
+      LOGGER.info("Parsed exercise: {}", exercise);
+      return exercise;
+    } catch (Exception e) {
+      LOGGER.error("Failed to parse exercise response for concept: {}. Raw response: {}",
+          concept.getLessonCode(), rawResponse, e);
+      throw new AiResponseParsingException("Failed to parse exercise response", e);
+    }
+  }
+
+  private List<LessonExercise> generateExercises(LessonConcept concept) {
+    return concept.getObjectives().stream()
+        .map(objective -> generateExerciseForObjective(concept, objective))
+        .toList();
+  }
+
+  private LessonSection createLessonSection(String type, String title, String content) {
+    return new LessonSection(type, title, content);
+  }
+
+  private List<LessonSection> createLessonSections(LessonExplanation explanation, LessonExamples examples,
+      LessonCommonMistakes commonMistakes) {
+
+    String commonMistakesText = commonMistakes.commonMistakes().stream()
+        .map(item -> item.mistake() + " — " + item.explanation() + " Fix: " + item.fix())
+        .collect(Collectors.joining("\n"));
+
+    return List.of(
+        createLessonSection("EXPLANATION", explanation.title(), explanation.explanation()),
+        createLessonSection("EXAMPLES", examples.title(), String.join("\n", examples.examples())),
+        createLessonSection("COMMON_MISTAKES", commonMistakes.title(), commonMistakesText));
+  }
+
+  public LessonContent buildLessonContent(LessonConcept concept) {
+    LessonExplanation explanation = generateExplaination(concept);
+    LessonExamples examples = generateExamples(concept);
+    LessonCommonMistakes commonMistakes = generateCommonMistakes(concept);
+    List<LessonExercise> exercises = generateExercises(concept);
+
+    List<LessonSection> sections = createLessonSections(explanation, examples, commonMistakes);
+
+    LessonContent lessonContent = new LessonContent(
+        concept.getName(),
+        concept.getGoal(),
+        explanation.explanation(),
+        sections,
+        exercises);
+
+    LOGGER.info("Generated lesson content for concept: {}", concept.getName());
+    LOGGER.debug("Lesson content: {}", lessonContent);
+
+    return lessonContent;
+
+  }
 }
