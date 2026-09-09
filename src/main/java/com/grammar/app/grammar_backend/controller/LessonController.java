@@ -28,7 +28,7 @@ public class LessonController {
     }
 
     @GetMapping("/generateLesson")
-    @Parameter(name = "lesson code", schema = @Schema(implementation = LessonCode.class))
+    @Parameter(name = "lessonCode", schema = @Schema(implementation = LessonCode.class))
     public ResponseEntity<Lesson> generateAndSaveLesson(LessonCode lessonCode) {
         Lesson lesson = lessonService.generateAndSaveLesson(lessonCode);
         return ResponseEntity.ok(lesson);

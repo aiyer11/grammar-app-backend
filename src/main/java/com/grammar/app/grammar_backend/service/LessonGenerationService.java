@@ -5,9 +5,7 @@ import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.grammar.app.grammar_backend.entity.lesson_generation.LessonCommonMistakes;
 import com.grammar.app.grammar_backend.entity.lesson_generation.LessonConcept;
 import com.grammar.app.grammar_backend.entity.lesson_generation.LessonContent;
@@ -15,17 +13,16 @@ import com.grammar.app.grammar_backend.entity.lesson_generation.LessonExamples;
 import com.grammar.app.grammar_backend.entity.lesson_generation.LessonExercise;
 import com.grammar.app.grammar_backend.entity.lesson_generation.LessonExplanation;
 import com.grammar.app.grammar_backend.entity.lesson_generation.LessonSection;
-import com.grammar.app.grammar_backend.exceptions.AiResponseParsingException;
+import com.grammar.app.grammar_backend.service.ai.AiResponseOrchestrator;
 
 @Service
 public class LessonGenerationService {
 
-  private final ChatClient chatClient;
   private final Logger LOGGER = LoggerFactory.getLogger(LessonGenerationService.class);
-  private final ObjectMapper objectMapper = new ObjectMapper();
+  private final AiResponseOrchestrator orchestrator;
 
-  public LessonGenerationService(ChatClient.Builder chatClient) {
-    this.chatClient = chatClient.build();
+  public LessonGenerationService(AiResponseOrchestrator orchestrator) {
+    this.orchestrator = orchestrator;
   }
 
   private LessonExplanation generateExplaination(LessonConcept concept) {
@@ -65,20 +62,7 @@ public class LessonGenerationService {
     LOGGER.info("Generating explanation for concept: {}", concept.getName());
     LOGGER.debug("Prompt for explanation generation: {}", prompt);
 
-    String rawResponse = chatClient.prompt()
-        .user(prompt)
-        .call()
-        .content();
-
-    try {
-      LessonExplanation explanation = objectMapper.readValue(rawResponse, LessonExplanation.class);
-      LOGGER.info("Parsed explanation: {}", explanation);
-      return explanation;
-    } catch (Exception e) {
-      LOGGER.error("Failed to parse explanation response for {}. Raw response: {}",
-          concept.getLessonCode(), rawResponse, e);
-      throw new AiResponseParsingException("Failed to parse explanation response", e);
-    }
+    return orchestrator.execute(prompt, LessonExplanation.class);
   }
 
   private LessonExamples generateExamples(LessonConcept concept) {
@@ -120,20 +104,7 @@ public class LessonGenerationService {
     LOGGER.info("Generating examples for concept: {}", concept.getName());
     LOGGER.debug("Prompt for example generation: {}", prompt);
 
-    String rawResponse = chatClient.prompt()
-        .user(prompt)
-        .call()
-        .content();
-
-    try {
-      LessonExamples examples = objectMapper.readValue(rawResponse, LessonExamples.class);
-      LOGGER.info("Parsed examples: {}", examples);
-      return examples;
-    } catch (Exception e) {
-      LOGGER.error("Failed to parse examples response for {}. Raw response: {}",
-          concept.getLessonCode(), rawResponse, e);
-      throw new AiResponseParsingException("Failed to parse examples response", e);
-    }
+    return orchestrator.execute(prompt, LessonExamples.class);
   }
 
   private LessonCommonMistakes generateCommonMistakes(LessonConcept concept) {
@@ -190,20 +161,7 @@ public class LessonGenerationService {
     LOGGER.info("Generating common mistakes for concept: {}", concept.getName());
     LOGGER.debug("Prompt for common mistakes generation: {}", prompt);
 
-    String rawResponse = chatClient.prompt()
-        .user(prompt)
-        .call()
-        .content();
-
-    try {
-      LessonCommonMistakes commonMistakes = objectMapper.readValue(rawResponse, LessonCommonMistakes.class);
-      LOGGER.info("Parsed common mistakes: {}", commonMistakes);
-      return commonMistakes;
-    } catch (Exception e) {
-      LOGGER.error("Failed to parse common mistakes response for {}. Raw response: {}",
-          concept.getLessonCode(), rawResponse, e);
-      throw new AiResponseParsingException("Failed to parse common mistakes response", e);
-    }
+    return orchestrator.execute(prompt, LessonCommonMistakes.class);
   }
 
   private LessonExercise generateExerciseForObjective(LessonConcept concept, String objective) {
@@ -249,20 +207,7 @@ public class LessonGenerationService {
     LOGGER.info("Generating exercise for concept: {} and objective: {}", concept.getName(), objective);
     LOGGER.debug("Prompt for exercise generation: {}", prompt);
 
-    String rawResponse = chatClient.prompt()
-        .user(prompt)
-        .call()
-        .content();
-
-    try {
-      LessonExercise exercise = objectMapper.readValue(rawResponse, LessonExercise.class);
-      LOGGER.info("Parsed exercise: {}", exercise);
-      return exercise;
-    } catch (Exception e) {
-      LOGGER.error("Failed to parse exercise response for concept: {}. Raw response: {}",
-          concept.getLessonCode(), rawResponse, e);
-      throw new AiResponseParsingException("Failed to parse exercise response", e);
-    }
+    return orchestrator.execute(prompt, LessonExercise.class);
   }
 
   private List<LessonExercise> generateExercises(LessonConcept concept) {

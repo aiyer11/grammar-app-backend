@@ -1,4 +1,6 @@
 package com.grammar.app.grammar_backend.entity.lesson_generation;
 
-public record CommonMistake(String mistake, String explanation, String fix) {
+import jakarta.validation.constraints.NotBlank;
+
+public record CommonMistake(@NotBlank String mistake, @NotBlank String explanation, @NotBlank String fix) {
 }

@@ -2,15 +2,19 @@ package com.grammar.app.grammar_backend.entity.lesson_generation;
 
 import java.util.List;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+
 public record LessonExercise(
-        String id,
-        ExerciseType type,
-        String objective,
-        String prompt,
-        String questionText,
-        List<String> options,
-        String correctAnswer,
-        String explanation) {
+        @NotBlank String id,
+        @NotNull ExerciseType type,
+        @NotBlank String objective,
+        @NotBlank String prompt,
+        @NotBlank String questionText,
+        @NotNull @Size(min = 2) List<@NotBlank String> options,
+        @NotBlank String correctAnswer,
+        @NotBlank String explanation) {
 }
 
 enum ExerciseType {
