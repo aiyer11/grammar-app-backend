@@ -6,6 +6,9 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+
+import com.grammar.app.grammar_backend.entity.Lesson;
+import com.grammar.app.grammar_backend.entity.lesson_generation.LessonCode;
 import com.grammar.app.grammar_backend.entity.lesson_generation.LessonCommonMistakes;
 import com.grammar.app.grammar_backend.entity.lesson_generation.LessonConcept;
 import com.grammar.app.grammar_backend.entity.lesson_generation.LessonContent;
@@ -13,6 +16,8 @@ import com.grammar.app.grammar_backend.entity.lesson_generation.LessonExamples;
 import com.grammar.app.grammar_backend.entity.lesson_generation.LessonExercise;
 import com.grammar.app.grammar_backend.entity.lesson_generation.LessonExplanation;
 import com.grammar.app.grammar_backend.entity.lesson_generation.LessonSection;
+import com.grammar.app.grammar_backend.repository.LessonConceptRepository;
+import com.grammar.app.grammar_backend.repository.LessonRepository;
 import com.grammar.app.grammar_backend.service.ai.AiResponseOrchestrator;
 
 @Service
@@ -20,9 +25,14 @@ public class LessonGenerationService {
 
   private final Logger LOGGER = LoggerFactory.getLogger(LessonGenerationService.class);
   private final AiResponseOrchestrator orchestrator;
+  private final LessonConceptRepository lessonConceptRepository;
+  private final LessonRepository lessonRepository;
 
-  public LessonGenerationService(AiResponseOrchestrator orchestrator) {
+  public LessonGenerationService(AiResponseOrchestrator orchestrator, LessonConceptRepository lessonConceptRepository,
+      LessonRepository lessonRepository) {
     this.orchestrator = orchestrator;
+    this.lessonConceptRepository = lessonConceptRepository;
+    this.lessonRepository = lessonRepository;
   }
 
   private LessonExplanation generateExplaination(LessonConcept concept) {
@@ -233,7 +243,7 @@ public class LessonGenerationService {
         createLessonSection("COMMON_MISTAKES", commonMistakes.title(), commonMistakesText));
   }
 
-  public LessonContent buildLessonContent(LessonConcept concept) {
+  private LessonContent buildLessonContent(LessonConcept concept) {
     LessonExplanation explanation = generateExplaination(concept);
     LessonExamples examples = generateExamples(concept);
     LessonCommonMistakes commonMistakes = generateCommonMistakes(concept);
@@ -252,6 +262,52 @@ public class LessonGenerationService {
     LOGGER.debug("Lesson content: {}", lessonContent);
 
     return lessonContent;
-
   }
+
+  private LessonConcept getLessonConcept(String lessonCode) {
+    LessonConcept lessonConcept = lessonConceptRepository.findByLessonCode(lessonCode)
+        .orElseThrow(() -> new RuntimeException("Lesson concept not found for code: " + lessonCode));
+    return lessonConcept;
+  }
+
+  private int estimateDuration(LessonContent lessonContent) {
+    int duration = 5;
+
+    if (lessonContent.sections() != null) {
+      duration += lessonContent.sections().stream()
+          .mapToInt(section -> {
+            switch (section.type().toUpperCase()) {
+              case "EXPLANATION":
+                return 8;
+              case "EXAMPLES":
+                return 5;
+              case "COMMON_MISTAKES":
+                return 4;
+              default:
+                return 3;
+            }
+          })
+          .sum();
+    }
+
+    if (lessonContent.exercises() != null) {
+      duration += lessonContent.exercises().size() * 3;
+    }
+
+    return duration;
+  }
+
+  public Lesson generateAndSaveLesson(LessonCode lessonCode) {
+    LessonConcept lessonConcept = getLessonConcept(lessonCode.name());
+    LessonContent lessonContent = buildLessonContent(lessonConcept);
+    Lesson lesson = Lesson.builder()
+        .title(lessonContent.title())
+        .description(lessonContent.summary())
+        .estimatedTime(estimateDuration(lessonContent))
+        .difficultyLevel(lessonConcept.getDifficultyLevel())
+        .content(lessonContent)
+        .build();
+    return lessonRepository.save(lesson);
+  }
+
 }
