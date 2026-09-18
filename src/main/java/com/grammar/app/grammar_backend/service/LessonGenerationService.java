@@ -15,215 +15,30 @@ import com.grammar.app.grammar_backend.entity.lesson_generation.LessonContent;
 import com.grammar.app.grammar_backend.entity.lesson_generation.LessonExamples;
 import com.grammar.app.grammar_backend.entity.lesson_generation.LessonExercise;
 import com.grammar.app.grammar_backend.entity.lesson_generation.LessonExplanation;
+import com.grammar.app.grammar_backend.entity.lesson_generation.LessonQualityReview;
 import com.grammar.app.grammar_backend.entity.lesson_generation.LessonSection;
+import com.grammar.app.grammar_backend.exceptions.LessonValidationException;
 import com.grammar.app.grammar_backend.repository.LessonConceptRepository;
 import com.grammar.app.grammar_backend.repository.LessonRepository;
-import com.grammar.app.grammar_backend.service.ai.AiResponseOrchestrator;
+import com.grammar.app.grammar_backend.service.ai.AiContentValidation;
+import com.grammar.app.grammar_backend.service.ai.LessonContentGenerator;
 
 @Service
 public class LessonGenerationService {
 
   private final Logger LOGGER = LoggerFactory.getLogger(LessonGenerationService.class);
-  private final AiResponseOrchestrator orchestrator;
+  private final AiContentValidation validation;
   private final LessonConceptRepository lessonConceptRepository;
+  private final LessonContentGenerator generator;
   private final LessonRepository lessonRepository;
+  private static final int MAX_LESSON_ATTEMPTS = 2;
 
-  public LessonGenerationService(AiResponseOrchestrator orchestrator, LessonConceptRepository lessonConceptRepository,
-      LessonRepository lessonRepository) {
-    this.orchestrator = orchestrator;
+  public LessonGenerationService(LessonContentGenerator generator, LessonConceptRepository lessonConceptRepository,
+      LessonRepository lessonRepository, AiContentValidation validation) {
+    this.generator = generator;
     this.lessonConceptRepository = lessonConceptRepository;
     this.lessonRepository = lessonRepository;
-  }
-
-  private LessonExplanation generateExplaination(LessonConcept concept) {
-    String prompt = """
-        You are an expert English grammar teacher.
-
-        Concept:
-        - Name: %s
-        - Category: %s
-        - Difficulty: %s
-        - Goal: %s
-
-        Rules:
-        - Keep them appropriate for the difficulty level
-        - Make them realistic and grammar-correct
-        - The examples should directly show the concept in use
-        - Return valid JSON only with this schema:
-        - No markdown fences.
-        - No commentary.
-        - No text before or after the JSON.
-        - No code blocks.
-        - No trailing commas.
-        - The output must be a single JSON object.
-
-        Generate a short lesson title and a clear explanation for this concept.
-        Return valid JSON only with this schema:
-        {
-          "title": "string",
-          "explanation": "string"
-        }
-        """.formatted(
-        concept.getName(),
-        concept.getCategory(),
-        concept.getDifficultyLevel(),
-        concept.getGoal());
-
-    LOGGER.info("Generating explanation for concept: {}", concept.getName());
-    LOGGER.debug("Prompt for explanation generation: {}", prompt);
-
-    return orchestrator.execute(prompt, LessonExplanation.class);
-  }
-
-  private LessonExamples generateExamples(LessonConcept concept) {
-    String prompt = """
-        You are an expert English grammar teacher.
-
-        Concept:
-        - Name: %s
-        - Category: %s
-        - Difficulty: %s
-        - Goal: %s
-
-        Generate:
-        - a short section title
-        - exactly 3 clear example sentences that demonstrate this concept
-
-        Rules:
-        - Keep them appropriate for the difficulty level
-        - Make them realistic and grammar-correct
-        - The examples should directly show the concept in use
-        - Return valid JSON only with this schema:
-        - No markdown fences.
-        - No commentary.
-        - No text before or after the JSON.
-        - No code blocks.
-        - No trailing commas.
-        - The output must be a single JSON object.
-        {
-          "title": "string",
-          "examples": ["string", "string", "string"]
-        }
-        - The value must be raw JSON
-        """.formatted(
-        concept.getName(),
-        concept.getCategory(),
-        concept.getDifficultyLevel(),
-        concept.getGoal());
-
-    LOGGER.info("Generating examples for concept: {}", concept.getName());
-    LOGGER.debug("Prompt for example generation: {}", prompt);
-
-    return orchestrator.execute(prompt, LessonExamples.class);
-  }
-
-  private LessonCommonMistakes generateCommonMistakes(LessonConcept concept) {
-    String prompt = """
-        You are an expert English grammar teacher.
-
-        Concept:
-        - Name: %s
-        - Category: %s
-        - Difficulty: %s
-        - Goal: %s
-
-        Generate:
-        - a short section title
-        - exactly 3 common mistakes that learners make with this concept, along with explanations and fixes
-        - The fix should be a corrected sentence or grammatical rule.
-
-        Rules:
-        - Keep them appropriate for the difficulty level
-        - Make them realistic and relevant to the concept
-        - Return valid JSON only with this schema:
-        - No markdown fences.
-        - No commentary.
-        - No text before or after the JSON.
-        - No code blocks.
-        - No trailing commas.
-        - The output must be a single JSON object.
-        {
-          "title": "string",
-          "commonMistakes": [
-            {
-              "mistake": "string",
-              "explanation": "string",
-              "fix": "string"
-            },
-            {
-              "mistake": "string",
-              "explanation": "string",
-              "fix": "string"
-            },
-            {
-              "mistake": "string",
-              "explanation": "string",
-              "fix": "string"
-            }
-          ]
-        }
-        """.formatted(
-        concept.getName(),
-        concept.getCategory(),
-        concept.getDifficultyLevel(),
-        concept.getGoal());
-
-    LOGGER.info("Generating common mistakes for concept: {}", concept.getName());
-    LOGGER.debug("Prompt for common mistakes generation: {}", prompt);
-
-    return orchestrator.execute(prompt, LessonCommonMistakes.class);
-  }
-
-  private LessonExercise generateExerciseForObjective(LessonConcept concept, String objective) {
-    String prompt = """
-        You are an expert English grammar teacher.
-
-        Concept:
-        - Name: %s
-        - Category: %s
-        - Difficulty: %s
-        - Goal: %s
-
-        Objective to teach:
-        %s
-
-        Choose the single best exercise type for this objective from:
-        MULTIPLE_CHOICE, FILL_IN_THE_BLANK, TRUE_FALSE, DRAG_AND_DROP, SENTENCE_ORDERING
-
-        Rules:
-        - Generate exactly one exercise.
-        - The exercise must directly test this objective.
-        - Pick the best format for the objective.
-        - Keep it appropriate for the difficulty level.
-        - Return valid JSON only with this schema:
-
-        {
-          "id": "string",
-          "type": "MULTIPLE_CHOICE",
-          "objective": "string",
-          "prompt": "string",
-          "questionText": "string",
-          "options": ["string"],
-          "correctAnswer": "string",
-          "explanation": "string"
-        }
-        """.formatted(
-        concept.getName(),
-        concept.getCategory(),
-        concept.getDifficultyLevel(),
-        concept.getGoal(),
-        objective);
-
-    LOGGER.info("Generating exercise for concept: {} and objective: {}", concept.getName(), objective);
-    LOGGER.debug("Prompt for exercise generation: {}", prompt);
-
-    return orchestrator.execute(prompt, LessonExercise.class);
-  }
-
-  private List<LessonExercise> generateExercises(LessonConcept concept) {
-    return concept.getObjectives().stream()
-        .map(objective -> generateExerciseForObjective(concept, objective))
-        .toList();
+    this.validation = validation;
   }
 
   private LessonSection createLessonSection(String type, String title, String content) {
@@ -243,11 +58,11 @@ public class LessonGenerationService {
         createLessonSection("COMMON_MISTAKES", commonMistakes.title(), commonMistakesText));
   }
 
-  private LessonContent buildLessonContent(LessonConcept concept) {
-    LessonExplanation explanation = generateExplaination(concept);
-    LessonExamples examples = generateExamples(concept);
-    LessonCommonMistakes commonMistakes = generateCommonMistakes(concept);
-    List<LessonExercise> exercises = generateExercises(concept);
+  private LessonContent buildLessonContent(LessonConcept concept, List<String> previousIssues) {
+    LessonExplanation explanation = generator.generateExplaination(concept, previousIssues);
+    LessonExamples examples = generator.generateExamples(concept, previousIssues);
+    LessonCommonMistakes commonMistakes = generator.generateCommonMistakes(concept, previousIssues);
+    List<LessonExercise> exercises = generator.generateExercises(concept, previousIssues);
 
     List<LessonSection> sections = createLessonSections(explanation, examples, commonMistakes);
 
@@ -268,6 +83,10 @@ public class LessonGenerationService {
     LessonConcept lessonConcept = lessonConceptRepository.findByLessonCode(lessonCode)
         .orElseThrow(() -> new RuntimeException("Lesson concept not found for code: " + lessonCode));
     return lessonConcept;
+  }
+
+  private LessonQualityReview validateLessonContent(LessonContent lessonContent) {
+    return validation.outputQualityReview(lessonContent);
   }
 
   private int estimateDuration(LessonContent lessonContent) {
@@ -299,15 +118,40 @@ public class LessonGenerationService {
 
   public Lesson generateAndSaveLesson(LessonCode lessonCode) {
     LessonConcept lessonConcept = getLessonConcept(lessonCode.name());
-    LessonContent lessonContent = buildLessonContent(lessonConcept);
-    Lesson lesson = Lesson.builder()
-        .title(lessonContent.title())
-        .description(lessonContent.summary())
-        .estimatedTime(estimateDuration(lessonContent))
-        .difficultyLevel(lessonConcept.getDifficultyLevel())
-        .content(lessonContent)
-        .build();
-    return lessonRepository.save(lesson);
+    LessonContent lessonContent = null;
+    LessonQualityReview lessonQualityReview = null;
+    List<String> previousIssues = List.of();
+
+    for (int attempt = 1; attempt <= MAX_LESSON_ATTEMPTS; attempt++) {
+      lessonContent = buildLessonContent(lessonConcept, previousIssues);
+      lessonQualityReview = validateLessonContent(lessonContent);
+
+      if (lessonQualityReview.approved()) {
+        Lesson lesson = Lesson.builder()
+            .title(lessonContent.title())
+            .description(lessonContent.summary())
+            .estimatedTime(estimateDuration(lessonContent))
+            .difficultyLevel(lessonConcept.getDifficultyLevel())
+            .content(lessonContent)
+            .build();
+        return lessonRepository.save(lesson);
+      }
+
+      previousIssues = lessonQualityReview.issues();
+
+      LOGGER.warn("Generated lesson failed qaulity validation on attempt {}/{}. Issues: {}",
+          attempt,
+          MAX_LESSON_ATTEMPTS,
+          lessonQualityReview.issues());
+
+    }
+
+    throw new LessonValidationException(
+        "Lesson failed quality validation after "
+            + MAX_LESSON_ATTEMPTS
+            + " attempts: "
+            + lessonQualityReview.issues());
+
   }
 
 }

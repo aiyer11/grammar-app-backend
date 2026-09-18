@@ -7,7 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 public record LessonExercise(
-        @NotBlank String id,
+        String id,
         @NotNull ExerciseType type,
         @NotBlank String objective,
         @NotBlank String prompt,
@@ -15,6 +15,17 @@ public record LessonExercise(
         @NotNull @Size(min = 2) List<@NotBlank String> options,
         @NotBlank String correctAnswer,
         @NotBlank String explanation) {
+    public LessonExercise withId(String id) {
+        return new LessonExercise(
+                id,
+                type,
+                objective,
+                prompt,
+                questionText,
+                options,
+                correctAnswer,
+                explanation);
+    }
 }
 
 enum ExerciseType {
