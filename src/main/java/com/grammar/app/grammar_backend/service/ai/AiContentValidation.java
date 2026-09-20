@@ -29,8 +29,6 @@ public class AiContentValidation {
             String lessonJson = objectMapper.writeValueAsString(lessonContent);
 
             String prompt = """
-                    You are a meticulous English grammar reviewer.
-
                     Review this lesson for:
                     - factual grammar errors
                     - incorrect classifications
@@ -56,7 +54,7 @@ public class AiContentValidation {
                     %s
                     """.formatted(lessonJson);
 
-            return executor.execute(chatClient, prompt, LessonQualityReview.class, 1);
+            return executor.execute(chatClient, PromptConstants.SYSTEM_CONTENT_VALIDATION, prompt, LessonQualityReview.class);
         } catch (JsonProcessingException exception) {
             throw new AiResponseParsingException(
                     "Could not serialize lesson for AI validation",

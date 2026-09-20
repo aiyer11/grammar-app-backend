@@ -59,7 +59,7 @@ public class LessonGenerationService {
   }
 
   private LessonContent buildLessonContent(LessonConcept concept, List<String> previousIssues) {
-    LessonExplanation explanation = generator.generateExplaination(concept, previousIssues);
+    LessonExplanation explanation = generator.generateExplanation(concept, previousIssues);
     LessonExamples examples = generator.generateExamples(concept, previousIssues);
     LessonCommonMistakes commonMistakes = generator.generateCommonMistakes(concept, previousIssues);
     List<LessonExercise> exercises = generator.generateExercises(concept, previousIssues);
@@ -80,9 +80,8 @@ public class LessonGenerationService {
   }
 
   private LessonConcept getLessonConcept(String lessonCode) {
-    LessonConcept lessonConcept = lessonConceptRepository.findByLessonCode(lessonCode)
-        .orElseThrow(() -> new RuntimeException("Lesson concept not found for code: " + lessonCode));
-    return lessonConcept;
+      return lessonConceptRepository.findByLessonCode(lessonCode)
+          .orElseThrow(() -> new RuntimeException("Lesson concept not found for code: " + lessonCode));
   }
 
   private LessonQualityReview validateLessonContent(LessonContent lessonContent) {
@@ -94,17 +93,11 @@ public class LessonGenerationService {
 
     if (lessonContent.sections() != null) {
       duration += lessonContent.sections().stream()
-          .mapToInt(section -> {
-            switch (section.type().toUpperCase()) {
-              case "EXPLANATION":
-                return 8;
-              case "EXAMPLES":
-                return 5;
-              case "COMMON_MISTAKES":
-                return 4;
-              default:
-                return 3;
-            }
+          .mapToInt(section -> switch (section.type().toUpperCase()) {
+              case "EXPLANATION" -> 8;
+              case "EXAMPLES" -> 5;
+              case "COMMON_MISTAKES" -> 4;
+              default -> 3;
           })
           .sum();
     }
@@ -139,7 +132,7 @@ public class LessonGenerationService {
 
       previousIssues = lessonQualityReview.issues();
 
-      LOGGER.warn("Generated lesson failed qaulity validation on attempt {}/{}. Issues: {}",
+      LOGGER.warn("Generated lesson failed quality validation on attempt {}/{}. Issues: {}",
           attempt,
           MAX_LESSON_ATTEMPTS,
           lessonQualityReview.issues());

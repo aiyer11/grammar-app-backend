@@ -15,7 +15,7 @@ public class AiResponseOrchestrator {
         this.executor = executor;
     }
 
-    public <T> T execute(String prompt, Class<T> responseType) {
-        return executor.execute(chatClient, prompt, responseType, 1);
+    public <T> T execute(String systemPrompt, String userPrompt, Class<T> responseType) {
+        return executor.execute(chatClient, systemPrompt,userPrompt, responseType);
     }
 }

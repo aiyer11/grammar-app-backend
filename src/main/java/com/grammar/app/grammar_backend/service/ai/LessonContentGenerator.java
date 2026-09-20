@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.core.parameters.P;
 import org.springframework.stereotype.Component;
 
 import com.grammar.app.grammar_backend.entity.lesson_generation.LessonCommonMistakes;
@@ -24,30 +25,10 @@ public class LessonContentGenerator {
         this.orchestrator = orchestrator;
     }
 
-    public LessonExplanation generateExplaination(LessonConcept concept, List<String> previousIssues) {
-        String prompt = """
-                You are an expert English grammar teacher.
-
-                %s
-
-                Concept:
-                - Name: %s
-                - Category: %s
-                - Difficulty: %s
-                - Goal: %s
-
-                Rules:
-                - Keep them appropriate for the difficulty level
-                - Make them realistic and grammar-correct
-                - The examples should directly show the concept in use
-                - Return valid JSON only with this schema:
-                - No markdown fences.
-                - No commentary.
-                - No text before or after the JSON.
-                - No code blocks.
-                - No trailing commas.
-                - The output must be a single JSON object.
-
+    public LessonExplanation generateExplanation(LessonConcept concept, List<String> previousIssues) {
+        String prompt = PromptConstants.USER_CONTENT_SHAPE +
+                PromptConstants.USER_RULES +
+                """
                 Generate a short lesson title and a clear explanation for this concept.
                 Return valid JSON only with this schema:
                 {
@@ -63,36 +44,17 @@ public class LessonContentGenerator {
         LOGGER.info("Generating explanation for concept: {}", concept.getName());
         LOGGER.debug("Prompt for explanation generation: {}", prompt);
 
-        return orchestrator.execute(prompt, LessonExplanation.class);
+        return orchestrator.execute(PromptConstants.SYSTEM_CONTENT_GENERATION,prompt, LessonExplanation.class);
     }
 
     public LessonExamples generateExamples(LessonConcept concept, List<String> previousIssues) {
-        String prompt = """
-                You are an expert English grammar teacher.
-
-                %s
-
-                Concept:
-                - Name: %s
-                - Category: %s
-                - Difficulty: %s
-                - Goal: %s
-
+        String prompt = PromptConstants.USER_CONTENT_SHAPE + """
                 Generate:
                 - a short section title
                 - exactly 3 clear example sentences that demonstrate this concept
-
-                Rules:
-                - Keep them appropriate for the difficulty level
-                - Make them realistic and grammar-correct
-                - The examples should directly show the concept in use
-                - Return valid JSON only with this schema:
-                - No markdown fences.
-                - No commentary.
-                - No text before or after the JSON.
-                - No code blocks.
-                - No trailing commas.
-                - The output must be a single JSON object.
+                """ +
+                PromptConstants.USER_RULES +
+                """
                 {
                   "title": "string",
                   "examples": ["string", "string", "string"]
@@ -107,36 +69,18 @@ public class LessonContentGenerator {
         LOGGER.info("Generating examples for concept: {}", concept.getName());
         LOGGER.debug("Prompt for example generation: {}", prompt);
 
-        return orchestrator.execute(prompt, LessonExamples.class);
+        return orchestrator.execute(PromptConstants.SYSTEM_CONTENT_GENERATION,prompt, LessonExamples.class);
     }
 
     public LessonCommonMistakes generateCommonMistakes(LessonConcept concept, List<String> previousIssues) {
-        String prompt = """
-                You are an expert English grammar teacher.
-
-                %s
-
-                Concept:
-                - Name: %s
-                - Category: %s
-                - Difficulty: %s
-                - Goal: %s
-
+        String prompt = PromptConstants.USER_CONTENT_SHAPE + """
                 Generate:
                 - a short section title
                 - exactly 3 common mistakes that learners make with this concept, along with explanations and fixes
                 - The fix should be a corrected sentence or grammatical rule.
-
-                Rules:
-                - Keep them appropriate for the difficulty level
-                - Make them realistic and relevant to the concept
-                - Return valid JSON only with this schema:
-                - No markdown fences.
-                - No commentary.
-                - No text before or after the JSON.
-                - No code blocks.
-                - No trailing commas.
-                - The output must be a single JSON object.
+                """ +
+                PromptConstants.USER_RULES +
+                """
                 {
                   "title": "string",
                   "commonMistakes": [
@@ -166,7 +110,7 @@ public class LessonContentGenerator {
         LOGGER.info("Generating common mistakes for concept: {}", concept.getName());
         LOGGER.debug("Prompt for common mistakes generation: {}", prompt);
 
-        return orchestrator.execute(prompt, LessonCommonMistakes.class);
+        return orchestrator.execute(PromptConstants.SYSTEM_CONTENT_GENERATION, prompt, LessonCommonMistakes.class);
     }
 
     public List<LessonExercise> generateExercises(LessonConcept concept, List<String> previousIssues) {
@@ -202,37 +146,14 @@ public class LessonContentGenerator {
 
     private LessonExercise generateExerciseForObjective(LessonConcept concept, String objective,
             List<String> previousIssues) {
-        String prompt = """
-                You are an expert English grammar teacher.
-
-                %s
-
-                Concept:
-                - Name: %s
-                - Category: %s
-                - Difficulty: %s
-                - Goal: %s
-
-                Objective to teach:
-                %s
+        String prompt = PromptConstants.USER_CONTENT_SHAPE +"""
+                Objective to teach: %s
 
                 Choose the single best exercise type for this objective from:
                 MULTIPLE_CHOICE, FILL_IN_THE_BLANK, TRUE_FALSE, DRAG_AND_DROP, SENTENCE_ORDERING
-
-                Rules:
-                - Generate exactly one exercise.
-                - The exercise must directly test this objective.
-                - Pick the best format for the objective.
-                - Keep it appropriate for the difficulty level.
-                - For MULTIPLE_CHOICE exercises:
-                    - There must be exactly one correct option.
-                    - Every other option must be clearly incorrect for the exact question.
-                    - Do not include another grammatically correct sentence as a distractor.
-                    - The correctAnswer must exactly match one option.
-                    - Verify the options and answer before returning JSON.
-                    - The explanation must describe why the correct answer is correct
-                    and why every other option is incorrect.
-                    - Never claim an option is excluded when it appears in the options array.
+                """+
+                PromptConstants.USER_EXERCISE_RULES +
+                """
                 - Return valid JSON only with this schema:
                 {
                   "type": "MULTIPLE_CHOICE",
@@ -253,7 +174,7 @@ public class LessonContentGenerator {
         LOGGER.info("Generating exercise for concept: {} and objective: {}", concept.getName(), objective);
         LOGGER.debug("Prompt for exercise generation: {}", prompt);
 
-        return orchestrator.execute(prompt, LessonExercise.class);
+        return orchestrator.execute(PromptConstants.SYSTEM_CONTENT_GENERATION, prompt, LessonExercise.class);
     }
 
 }

@@ -11,50 +11,22 @@ import com.grammar.app.grammar_backend.util.PromptValidator;
 
 @Component
 public class AiResponseExecutor {
-
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    private final PromptValidator promptValidator;
     private final Logger logger = LoggerFactory.getLogger(AiResponseExecutor.class);
-
-    public AiResponseExecutor(
-            PromptValidator promptValidator) {
-        this.promptValidator = promptValidator;
-    }
 
     public <T> T execute(
             ChatClient chatClient,
-            String prompt,
-            Class<T> responseType,
-            int maxRetries) {
-
-        Exception lastException = null;
-
-        for (int attempt = 0; attempt <= maxRetries; attempt++) {
+            String systemPrompt,
+            String userPrompt,
+            Class<T> responseType) {
             try {
-                String rawResponse = chatClient.prompt()
-                        .user(prompt)
+                return chatClient.prompt()
+                        .system(systemPrompt)
+                        .user(userPrompt)
                         .call()
-                        .content();
-
-                T response = objectMapper.readValue(rawResponse, responseType);
-                promptValidator.validate(response);
-
-                return response;
+                        .entity(responseType, ChatClient.EntityParamSpec::validateSchema);
             } catch (Exception exception) {
-                lastException = exception;
-
-                if (attempt < maxRetries) {
-                    logger.warn(
-                            "Invalid {} response, retrying ({}/{})",
-                            responseType.getSimpleName(),
-                            attempt + 1,
-                            maxRetries);
-                }
+                logger.error("Error executing AI response: {}", exception.getMessage(), exception);
+                throw new AiResponseParsingException("Failed to parse AI response", exception);
             }
-        }
-
-        throw new AiResponseParsingException(
-                "Failed to generate valid " + responseType.getSimpleName(),
-                lastException);
     }
 }
