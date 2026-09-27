@@ -49,8 +49,8 @@ class LessonGenerationServiceTest {
   @InjectMocks
   private LessonGenerationService lessonGenerationService;
 
-  LessonCode lessonCode;
-  LessonConcept lessonConcept;
+  private LessonCode lessonCode;
+  private LessonConcept lessonConcept;
 
   @BeforeEach
   void setup() {
