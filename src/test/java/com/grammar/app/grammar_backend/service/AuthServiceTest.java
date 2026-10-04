@@ -13,6 +13,8 @@ import com.grammar.app.grammar_backend.entity.User;
 import com.grammar.app.grammar_backend.repository.UserRepository;
 import com.grammar.app.grammar_backend.util.JwtUtil;
 import java.util.Optional;
+import org.aspectj.lang.annotation.Before;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -45,8 +47,20 @@ class AuthServiceTest {
   @InjectMocks
   private AuthService authService;
 
+  private User user;
+
+  @BeforeEach
+    void setUp() {
+        user = User.builder()
+        .id(USER_ID)
+        .email(EMAIL)
+        .username(USERNAME)
+        .passwordHash(PASSWORD_HASH)
+        .build();
+    }
+
   @Test
-  void register_whenEmailIsAlreadyRegistered_throwsException() {
+  void testRegisterWhenEmailIsAlreadyRegistered() {
     Mockito.when(userRepository.existsByEmail(EMAIL)).thenReturn(true);
 
     IllegalArgumentException exception = assertThrows(
@@ -59,7 +73,7 @@ class AuthServiceTest {
   }
 
   @Test
-  void register_whenUsernameIsAlreadyRegistered_throwsException() {
+  void testRegisterWhenUsernameIsAlreadyRegistered() {
     Mockito.when(userRepository.existsByEmail(EMAIL)).thenReturn(false);
     Mockito.when(userRepository.existsByUsername(USERNAME)).thenReturn(true);
 
@@ -73,7 +87,7 @@ class AuthServiceTest {
   }
 
   @Test
-  void register_whenCredentialsAreAvailable_savesUserAndReturnsTokens() {
+  void testRegister() {
     Mockito.when(userRepository.existsByEmail(EMAIL)).thenReturn(false);
     Mockito.when(userRepository.existsByUsername(USERNAME)).thenReturn(false);
     Mockito.when(passwordEncoder.encode(PASSWORD)).thenReturn(PASSWORD_HASH);
@@ -106,8 +120,7 @@ class AuthServiceTest {
   }
 
   @Test
-  void login_whenCredentialsAreValid_returnsTokensAndUser() {
-    User user = existingUser();
+  void testLogin() {
     Mockito.when(userRepository.findByEmail(EMAIL)).thenReturn(
       Optional.of(user)
     );
@@ -131,7 +144,7 @@ class AuthServiceTest {
   }
 
   @Test
-  void login_whenEmailDoesNotExist_throwsGenericCredentialError() {
+  void testLoginEmailDoesNotExist() {
     Mockito.when(userRepository.findByEmail(EMAIL)).thenReturn(
       Optional.empty()
     );
@@ -145,9 +158,9 @@ class AuthServiceTest {
   }
 
   @Test
-  void login_whenPasswordDoesNotMatch_throwsGenericCredentialError() {
+  void testLoginPasswordDoesNotMatch() {
     Mockito.when(userRepository.findByEmail(EMAIL)).thenReturn(
-      Optional.of(existingUser())
+      Optional.of(user)
     );
     Mockito.when(passwordEncoder.matches(PASSWORD, PASSWORD_HASH)).thenReturn(
       false
@@ -162,11 +175,11 @@ class AuthServiceTest {
   }
 
   @Test
-  void refreshAccessToken_whenTokenIsValid_returnsNewAccessToken() {
+  void testRefreshAccessToken() {
     Mockito.when(jwtUtil.isTokenExpired(REFRESH_TOKEN)).thenReturn(false);
     Mockito.when(jwtUtil.extractUserId(REFRESH_TOKEN)).thenReturn(USER_ID);
     Mockito.when(userRepository.findById(USER_ID)).thenReturn(
-      Optional.of(existingUser())
+      Optional.of(user)
     );
     Mockito.when(jwtUtil.generateAccessToken(USER_ID, EMAIL)).thenReturn(
       ACCESS_TOKEN
@@ -180,7 +193,7 @@ class AuthServiceTest {
   }
 
   @Test
-  void refreshAccessToken_whenTokenIsExpired_throwsException() {
+  void testRefreshAccessTokenTokenIsExpired() {
     Mockito.when(jwtUtil.isTokenExpired(REFRESH_TOKEN)).thenReturn(true);
 
     IllegalArgumentException exception = assertThrows(
@@ -194,7 +207,7 @@ class AuthServiceTest {
   }
 
   @Test
-  void refreshAccessToken_whenUserDoesNotExist_throwsException() {
+  void testRefreshAccessTokenUserDoesNotExist() {
     Mockito.when(jwtUtil.isTokenExpired(REFRESH_TOKEN)).thenReturn(false);
     Mockito.when(jwtUtil.extractUserId(REFRESH_TOKEN)).thenReturn(USER_ID);
     Mockito.when(userRepository.findById(USER_ID)).thenReturn(Optional.empty());
@@ -205,14 +218,5 @@ class AuthServiceTest {
     );
 
     assertEquals("User not found", exception.getMessage());
-  }
-
-  private User existingUser() {
-    return User.builder()
-      .id(USER_ID)
-      .email(EMAIL)
-      .username(USERNAME)
-      .passwordHash(PASSWORD_HASH)
-      .build();
   }
 }

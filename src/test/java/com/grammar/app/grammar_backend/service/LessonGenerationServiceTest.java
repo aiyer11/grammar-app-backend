@@ -62,7 +62,7 @@ class LessonGenerationServiceTest {
   }
 
   @Test
-  void generateAndSaveLesson_whenReviewApproves_savesAndReturnsLesson() {
+  void testGenerateAndSaveLesson() {
     LessonQualityReview approvedReview = new LessonQualityReview(
       true,
       List.of(),
@@ -100,7 +100,7 @@ class LessonGenerationServiceTest {
   }
 
   @Test
-  void generateAndSaveLesson_whenFirstReviewRejectsAndSecondApproves_savesLesson() {
+  void testGenerateAndSaveLessonRejectFirstSaveSecond() {
     List<String> issues = List.of("Clarify the explanation");
     LessonQualityReview rejectedReview = new LessonQualityReview(
       false,
@@ -138,7 +138,7 @@ class LessonGenerationServiceTest {
   }
 
   @Test
-  void generateAndSaveLesson_whenBothReviewsReject_throwsAndDoesNotSave() {
+  void testGenerateAndSaveLessonRejectBoth() {
     List<String> issues = List.of("Clarify the explanation");
     LessonQualityReview rejectedReview = new LessonQualityReview(
       false,

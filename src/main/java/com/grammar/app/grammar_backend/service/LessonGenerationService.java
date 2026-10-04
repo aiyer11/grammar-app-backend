@@ -135,7 +135,7 @@ public class LessonGenerationService {
 
   public Lesson generateAndSaveLesson(LessonCode lessonCode) {
     LessonConcept lessonConcept = getLessonConcept(lessonCode.name());
-    LessonContent lessonContent = null;
+    LessonContent lessonContent;
     LessonQualityReview lessonQualityReview = null;
     List<String> previousIssues = List.of();
 
